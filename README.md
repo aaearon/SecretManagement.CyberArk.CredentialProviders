@@ -1,1 +1,1 @@
-# SecretManagement.CyberArk.CentralCredentialProvider
+# SecretManagement.CyberArk.CredentialProviders
