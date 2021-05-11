@@ -6,20 +6,7 @@
         [hashtable] $AdditionalParameters
     )
 
-    $VaultParameters = (Get-SecretVault -Name $VaultName).VaultParameters
-
-    $GetCCPCredentialParameters = @{}
-    $GetCCPCredentialParameters.Add('AppId', $VaultParameters.AppID)
-    $GetCCPCredentialParameters.Add('URL', $VaultParameters.URL)
-    $GetCCPCredentialParameters.Add('Object', $Name)
-    if ($VaultParameters.SkipCertificateCheck) { $GetCCPCredentialParameters.Add('SkipCertificateCheck', $VaultParameters.SkipCertificateCheck) }
-    if ($VaultParameters.UseDefaultCredentials) { $GetCCPCredentialParameters.Add('UseDefaultCredentials', $VaultParameters.UseDefaultCredentials) }
-    if ($VaultParameters.Credential) { $GetCCPCredentialParameters.Add('Credential', $VaultParameters.Credential) }
-    if ($VaultParameters.CertificateThumbPrint) { $GetCCPCredentialParameters.Add('CertificateThumbPrint', $VaultParameters.CertificateThumbPrint) }
-    if ($VaultParameters.Certificate) { $GetCCPCredentialParameters.Add('Certificate', $VaultParameters.Certificatel) }
-
-    $Secret = (Get-CCPCredential @GetCCPCredentialParameters).toSecureString()
-    return $Secret
+    return (Invoke-GetCCPCredential -Name $Name -VaultName $VaultName -AdditionalParameters $AdditionalParameters).ToSecureString()
 }
 
 function Get-SecretInfo {
@@ -30,20 +17,16 @@ function Get-SecretInfo {
         [hashtable] $AdditionalParameters
     )
 
-    foreach ($Account in $results) {
-        $Metadata = [Ordered]@{}
-        $Account.psobject.properties | ForEach-Object { $Metadata[$PSItem.Name] = $PSItem.Value }
+    $Credential = Invoke-GetCCPCredential -Name $Filter -VaultName $VaultName -AdditionalParameters $AdditionalParameters
 
-        $SecretInfo = [Microsoft.PowerShell.SecretManagement.SecretInformation]::new(
-            "$($Account.name)", # Name of secret
-            [Microsoft.PowerShell.SecretManagement.SecretType]::PSCredential, # Secret data type [Microsoft.PowerShell.SecretManagement.SecretType]
-            $VaultName, # Name of vault
-            $Metadata)  # Optional Metadata parameter)
+    $Metadata = [Ordered]@{}
+    $Credential.psobject.properties | Where-Object {$PSItem.Name -ne 'Content'} | ForEach-Object { $Metadata[$PSItem.Name] = $PSItem.Value }
 
-        $Secrets.Add($SecretInfo)
-    }
-
-    return $Secrets
+    return [Microsoft.PowerShell.SecretManagement.SecretInformation]::new(
+        "$($Credential.name)", # Name of secret
+        [Microsoft.PowerShell.SecretManagement.SecretType]::SecureString, # Secret data type [Microsoft.PowerShell.SecretManagement.SecretType]
+        $VaultName, # Name of vault
+        $Metadata)  # Optional Metadata parameter
 }
 
 function Remove-Secret {
@@ -54,7 +37,7 @@ function Remove-Secret {
         [hashtable] $AdditionalParameters
     )
 
-    # Not possible with AIM!!!
+    throw 'Not implemented! This functionality is unsupported by Central Central Provider.'
 }
 
 function Set-Secret {
@@ -66,8 +49,7 @@ function Set-Secret {
         [hashtable] $AdditionalParameters
     )
 
-    # Not possible with AIM!!!
-
+    throw 'Not implemented! This functionality is unsupported by Central Central Provider.'
 }
 
 function Test-SecretVault {
@@ -78,7 +60,37 @@ function Test-SecretVault {
         [Parameter(ValueFromPipelineByPropertyName)]
         [hashtable] $AdditionalParameters
     )
-
-    # Test-PASSession
+    # try {
+    #     Invoke-GetCCPCredential -Name * -VaultName $VaultName -AdditionalParameters $AdditionalParameters
+    # } catch {
+    #     if ($PSItem.Exception.Message.StartsWith('Too many password objects matching query')) {
+    #         return $true
+    #     }
+    #     write-host 'did not hit if'
+    # }
+    # return $false
     return $true
+}
+
+function Invoke-GetCCPCredential {
+    [CmdletBinding()]
+    param (
+        [string] $Name,
+        [string] $VaultName,
+        [hashtable] $AdditionalParameters
+    )
+
+    $VaultParameters = (Get-SecretVault -Name $VaultName).VaultParameters
+
+    $GetCCPCredentialParameters = @{}
+    $GetCCPCredentialParameters.Add('AppID', $VaultParameters.AppID)
+    $GetCCPCredentialParameters.Add('URL', $VaultParameters.URL)
+    $GetCCPCredentialParameters.Add('Object', $Name)
+    if ($VaultParameters.SkipCertificateCheck) { $GetCCPCredentialParameters.Add('SkipCertificateCheck', $VaultParameters.SkipCertificateCheck) }
+    if ($VaultParameters.UseDefaultCredentials) { $GetCCPCredentialParameters.Add('UseDefaultCredentials', $VaultParameters.UseDefaultCredentials) }
+    if ($VaultParameters.Credential) { $GetCCPCredentialParameters.Add('Credential', $VaultParameters.Credential) }
+    if ($VaultParameters.CertificateThumbPrint) { $GetCCPCredentialParameters.Add('CertificateThumbPrint', $VaultParameters.CertificateThumbPrint) }
+    if ($VaultParameters.Certificate) { $GetCCPCredentialParameters.Add('Certificate', $VaultParameters.Certificatel) }
+
+    return Get-CCPCredential @GetCCPCredentialParameters
 }
