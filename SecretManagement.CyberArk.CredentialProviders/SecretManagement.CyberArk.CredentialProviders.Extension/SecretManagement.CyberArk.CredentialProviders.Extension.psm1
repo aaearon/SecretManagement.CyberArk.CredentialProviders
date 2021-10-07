@@ -1,4 +1,6 @@
-﻿function Get-Secret {
+﻿#Requires -Module CredentialRetriever
+
+function Get-Secret {
     [CmdletBinding()]
     param (
         [string] $Name,
@@ -60,16 +62,17 @@ function Test-SecretVault {
         [Parameter(ValueFromPipelineByPropertyName)]
         [hashtable] $AdditionalParameters
     )
-    # try {
-    #     Invoke-GetCCPCredential -Name * -VaultName $VaultName -AdditionalParameters $AdditionalParameters
-    # } catch {
-    #     if ($PSItem.Exception.Message.StartsWith('Too many password objects matching query')) {
-    #         return $true
-    #     }
-    #     write-host 'did not hit if'
-    # }
-    # return $false
-    return $true
+    try {
+        Invoke-GetCCPCredential -Name * -VaultName $VaultName -AdditionalParameters $AdditionalParameters -ErrorAction Stop
+    } catch {
+        $CyberArkErrorCode = $Error[0].FullyQualifiedErrorId.Split(',')[0]
+        Write-Host "test $CyberArkErrorCode"
+        if ($CyberArkErrorCode -eq 'APPAP229E') {
+            Write-Host "Got error code $CyberArkErrorCode : Too many objects. Successful connection to Vault!"
+            return $true
+        }
+        return $false
+    }
 }
 
 function Invoke-GetCCPCredential {
@@ -92,5 +95,12 @@ function Invoke-GetCCPCredential {
     if ($VaultParameters.CertificateThumbPrint) { $GetCCPCredentialParameters.Add('CertificateThumbPrint', $VaultParameters.CertificateThumbPrint) }
     if ($VaultParameters.Certificate) { $GetCCPCredentialParameters.Add('Certificate', $VaultParameters.Certificatel) }
 
-    return Get-CCPCredential @GetCCPCredentialParameters
+
+    try{
+        $Credential = Get-CCPCredential @GetCCPCredentialParameters -ErrorAction Stop }
+        catch {
+            throw $Error[0]
+        }
+
+    return $Credential
 }
